@@ -1,0 +1,37 @@
+:root {
+  /* Palette — polar night + aurora teal (status: good) + warning amber (status: pending)
+     + signal red (status: failed). Grounded in the two things you actually see at a
+     polar station after dark: the aurora overhead and the amber warning lights on deck. */
+  --ground: #0a1220;
+  --ground-raised: #101c30;
+  --ground-inset: #060d18;
+  --line: #223349;
+  --line-bright: #34506f;
+  --text: #dce8f2;
+  --text-dim: #8199b3;
+  --text-faint: #4d6379;
+  --accent: #35d0c4;
+  --accent-dim: #1f7d76;
+  --warn: #ff9f43;
+  --warn-dim: #8a5723;
+  --danger: #ff5c5c;
+  --danger-dim: #8a2f2f;
+
+  --font-display: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Roboto Mono', ui-monospace, monospace;
+  --font-body: 'Inter', -apple-system, 'Segoe UI', system-ui, sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius: 3px;
+  --radius-lg: 6px;
+}
+
+@media (prefers-color-scheme: light) {
+  /* Instrumentation reads the same in daylight or polar night — no light theme. */
+}

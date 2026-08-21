@@ -1,0 +1,115 @@
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  background: var(--ground-inset);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.status-bar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.status-bar__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+}
+
+.status-bar__mode {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  border: 1px solid var(--line-bright);
+  border-radius: var(--radius);
+  padding: 2px 6px;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot--online {
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(53, 208, 196, 0.6);
+  animation: pulse-online 2.2s ease-out infinite;
+}
+
+.status-dot--offline {
+  background: var(--warn);
+  box-shadow: 0 0 0 0 rgba(255, 159, 67, 0.6);
+  animation: pulse-offline 1.4s ease-out infinite;
+}
+
+@keyframes pulse-online {
+  0% { box-shadow: 0 0 0 0 rgba(53, 208, 196, 0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(53, 208, 196, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(53, 208, 196, 0); }
+}
+
+@keyframes pulse-offline {
+  0% { box-shadow: 0 0 0 0 rgba(255, 159, 67, 0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(255, 159, 67, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 159, 67, 0); }
+}
+
+.status-bar__stats {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.stat__value {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.stat__value[data-tone='danger'] {
+  color: var(--danger);
+}
+
+.stat__label {
+  margin-top: 2px;
+}
+
+.status-bar__priority {
+  flex: 1 1 160px;
+  min-width: 120px;
+  height: 6px;
+  background: var(--ground-raised);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+}
+
+.status-bar__priority-seg {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+.status-bar__clock {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.status-bar__cache-flag {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--warn);
+  border: 1px solid var(--warn-dim);
+  border-radius: var(--radius);
+  padding: 1px 5px;
+}

@@ -1,0 +1,128 @@
+.station-detail {
+  padding: var(--space-5);
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.station-detail--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+
+.station-detail__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.station-detail__name {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  margin: 4px 0 8px;
+  letter-spacing: -0.01em;
+}
+
+.station-detail__coord {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.station-detail__actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.link-toggle,
+.flush-btn {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--line-bright);
+  background: var(--ground-raised);
+  color: var(--text);
+}
+
+.link-toggle--up {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+.link-toggle--down {
+  border-color: var(--warn-dim);
+  color: var(--warn);
+}
+
+.link-toggle:disabled,
+.flush-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.station-detail__section-title {
+  margin-bottom: var(--space-3);
+}
+
+.inventory-table {
+  font-size: 13px;
+}
+
+.inventory-table th {
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--line);
+  padding: var(--space-2) var(--space-3);
+}
+
+.inventory-table td {
+  padding: var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.inventory-row--alert td {
+  background: rgba(255, 159, 67, 0.05);
+}
+
+.inventory-table__empty {
+  text-align: center;
+  color: var(--text-faint);
+  padding: var(--space-6);
+}
+
+.priority-badge {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: var(--radius);
+  border: 1px solid currentColor;
+}
+
+.priority-badge--medical { color: var(--danger); }
+.priority-badge--equipment { color: var(--warn); }
+.priority-badge--supply { color: var(--accent); }
+.priority-badge--routine { color: var(--text-faint); }
+
+.status-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.status-chip--ok { color: var(--text-dim); background: var(--ground-raised); }
+.status-chip--warn { color: var(--warn); background: var(--warn-dim); }
+.status-chip--danger { color: var(--danger); background: var(--danger-dim); }
