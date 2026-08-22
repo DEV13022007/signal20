@@ -31,6 +31,36 @@
   padding: 2px 6px;
 }
 
+.browser-link {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  border-radius: var(--radius);
+  padding: 2px 6px;
+}
+
+.browser-link--up {
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+}
+
+.browser-link--down {
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  background: var(--danger-dim);
+}
+
+.sim-offline-btn {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius);
+  padding: 3px 10px;
+  border: 1px solid var(--line-bright);
+  background: var(--ground-raised);
+  color: var(--text);
+}
+
 .status-dot {
   width: 9px;
   height: 9px;
@@ -38,16 +68,26 @@
   flex-shrink: 0;
 }
 
-.status-dot--online {
+.status-dot--all {
   background: var(--accent);
   box-shadow: 0 0 0 0 rgba(53, 208, 196, 0.6);
   animation: pulse-online 2.2s ease-out infinite;
 }
 
-.status-dot--offline {
+.status-dot--partial {
   background: var(--warn);
   box-shadow: 0 0 0 0 rgba(255, 159, 67, 0.6);
   animation: pulse-offline 1.4s ease-out infinite;
+}
+
+.status-dot--down {
+  background: var(--danger);
+  box-shadow: 0 0 0 0 rgba(255, 92, 92, 0.6);
+  animation: pulse-offline 1.4s ease-out infinite;
+}
+
+.status-dot--none {
+  background: var(--text-faint);
 }
 
 @keyframes pulse-online {

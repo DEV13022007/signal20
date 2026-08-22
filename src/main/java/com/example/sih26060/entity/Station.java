@@ -37,6 +37,13 @@ public class Station {
 
     private Double longitude;
 
+    private Integer capacity;
+
+    @Enumerated(EnumType.STRING)
+    private Season currentSeason;
+
+    private Integer operationalSinceYear;
+
     @Column(nullable = false)
     private Boolean satelliteLinkActive;
 

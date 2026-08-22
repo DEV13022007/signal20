@@ -1,6 +1,11 @@
+import { isSimulatedOffline } from '../lib/simulateOffline'
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
-async function request(path, options = {}) {
+export async function request(path, options = {}) {
+  if (isSimulatedOffline()) {
+    throw new TypeError('Failed to fetch (simulated offline)')
+  }
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
@@ -18,6 +23,8 @@ export const api = {
 
   getInventory: (stationId) =>
     request(stationId ? `/inventory?stationId=${stationId}` : '/inventory'),
+  createInventoryItem: (stationId, item) =>
+    request(`/inventory?stationId=${stationId}`, { method: 'POST', body: JSON.stringify(item) }),
 
   getSyncStatus: () => request('/sync/status'),
   getStationSyncStatus: (stationId) => request(`/sync/status/${stationId}`),

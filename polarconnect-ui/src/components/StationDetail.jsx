@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { repo } from '../api/offlineRepo'
+import { PRIORITIES, PRIORITY_ORDER } from '../constants/priority'
 import './StationDetail.css'
 
-const PRIORITY_ORDER = { MEDICAL: 0, EQUIPMENT: 1, SUPPLY: 2, ROUTINE: 3 }
-const EXPIRY_WARNING_DAYS = 30
+const EXPIRY_WARNING_DAYS = 90
+
+const EMPTY_FORM = { name: '', priority: 'ROUTINE', quantity: '', unit: '', minThreshold: '', expiryDate: '' }
 
 function daysUntil(dateStr) {
   if (!dateStr) return null
@@ -20,6 +22,8 @@ function coord(lat, lon) {
 
 export function StationDetail({ station, items, onChanged }) {
   const [busy, setBusy] = useState(false)
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [note, setNote] = useState(null)
 
   if (!station) {
     return (
@@ -51,6 +55,35 @@ export function StationDetail({ station, items, onChanged }) {
     }
   }
 
+  function updateField(field) {
+    return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
+  }
+
+  async function addItem(e) {
+    e.preventDefault()
+    if (!form.name.trim() || form.quantity === '') return
+    setBusy(true)
+    try {
+      const { queued } = await repo.createInventoryItem(station.id, {
+        name: form.name.trim(),
+        priority: form.priority,
+        quantity: Number(form.quantity),
+        unit: form.unit.trim() || null,
+        minThreshold: form.minThreshold === '' ? null : Number(form.minThreshold),
+        expiryDate: form.expiryDate || null,
+      })
+      setNote(
+        queued
+          ? `"${form.name.trim()}" queued locally — will sync when the connection returns.`
+          : `"${form.name.trim()}" added and synced.`,
+      )
+      setForm(EMPTY_FORM)
+      await onChanged()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="station-detail">
       <div className="station-detail__header">
@@ -58,14 +91,20 @@ export function StationDetail({ station, items, onChanged }) {
           <div className="eyebrow">{station.code} · {station.country ?? 'Unknown territory'}</div>
           <h1 className="station-detail__name">{station.name}</h1>
           <div className="station-detail__coord mono">{coord(station.latitude, station.longitude)}</div>
+          <div className="station-detail__meta mono">
+            Capacity {station.capacity ?? '—'} · {station.currentSeason ?? '—'} season · Est. {station.operationalSinceYear ?? '—'}
+          </div>
         </div>
         <div className="station-detail__actions">
+          <span className={`link-state ${station.satelliteLinkActive ? 'link-state--up' : 'link-state--down'}`}>
+            {station.satelliteLinkActive ? 'LINK ACTIVE' : 'LINK DOWN'}
+          </span>
           <button
             className={`link-toggle ${station.satelliteLinkActive ? 'link-toggle--up' : 'link-toggle--down'}`}
             onClick={toggleLink}
             disabled={busy}
           >
-            {station.satelliteLinkActive ? 'Link active — mark down' : 'Link down — mark active'}
+            {station.satelliteLinkActive ? 'Deactivate link' : 'Activate link'}
           </button>
           <button className="flush-btn" onClick={flush} disabled={busy}>
             Flush sync queue
@@ -74,6 +113,57 @@ export function StationDetail({ station, items, onChanged }) {
       </div>
 
       <div className="station-detail__section-title eyebrow">Inventory · {sorted.length} items</div>
+
+      <form className="add-item-form" onSubmit={addItem}>
+        <input
+          className="add-item-form__input"
+          placeholder="Item name"
+          value={form.name}
+          onChange={updateField('name')}
+          required
+        />
+        <select className="add-item-form__select" value={form.priority} onChange={updateField('priority')}>
+          {PRIORITIES.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+        <input
+          className="add-item-form__input add-item-form__input--qty"
+          type="number"
+          min="0"
+          placeholder="Qty"
+          value={form.quantity}
+          onChange={updateField('quantity')}
+          required
+        />
+        <input
+          className="add-item-form__input add-item-form__input--unit"
+          placeholder="Unit"
+          value={form.unit}
+          onChange={updateField('unit')}
+        />
+        <input
+          className="add-item-form__input add-item-form__input--qty"
+          type="number"
+          min="0"
+          placeholder="Min threshold"
+          value={form.minThreshold}
+          onChange={updateField('minThreshold')}
+        />
+        <input
+          className="add-item-form__input"
+          type="date"
+          value={form.expiryDate}
+          onChange={updateField('expiryDate')}
+        />
+        <button className="add-item-form__submit" type="submit" disabled={busy}>
+          Add item
+        </button>
+      </form>
+      {note && <div className="add-item-form__note">{note}</div>}
+
       <table className="inventory-table">
         <thead>
           <tr>

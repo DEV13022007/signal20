@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { isSimulatedOffline, setSimulatedOffline, subscribeSimulatedOffline } from '../lib/simulateOffline'
 
 export function useOnlineStatus() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [browserOnline, setBrowserOnline] = useState(navigator.onLine)
+  const [simulatedOffline, setSimulatedOfflineState] = useState(isSimulatedOffline())
 
   useEffect(() => {
-    const goOnline = () => setIsOnline(true)
-    const goOffline = () => setIsOnline(false)
+    const goOnline = () => setBrowserOnline(true)
+    const goOffline = () => setBrowserOnline(false)
     window.addEventListener('online', goOnline)
     window.addEventListener('offline', goOffline)
     return () => {
@@ -14,5 +16,15 @@ export function useOnlineStatus() {
     }
   }, [])
 
-  return isOnline
+  useEffect(() => subscribeSimulatedOffline(setSimulatedOfflineState), [])
+
+  const toggleSimulatedOffline = useCallback(() => {
+    setSimulatedOffline(!isSimulatedOffline())
+  }, [])
+
+  return {
+    isOnline: browserOnline && !simulatedOffline,
+    simulatedOffline,
+    toggleSimulatedOffline,
+  }
 }

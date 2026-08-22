@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
-import { repo } from '../api/offlineRepo'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { repo, getOutboxAsRecords } from '../api/offlineRepo'
 import { useOnlineStatus } from './useOnlineStatus'
 
 const POLL_INTERVAL_MS = 30_000
 
 export function useDashboardData() {
-  const isOnline = useOnlineStatus()
+  const { isOnline, simulatedOffline, toggleSimulatedOffline } = useOnlineStatus()
   const [state, setState] = useState({
     loading: true,
     error: null,
@@ -15,14 +15,17 @@ export function useDashboardData() {
     syncStatus: null,
     syncRecords: [],
   })
+  const wasOnline = useRef(isOnline)
+  const draining = useRef(false)
 
   const load = useCallback(async () => {
     try {
-      const [stationsRes, inventoryRes, syncRes, recordsRes] = await Promise.all([
+      const [stationsRes, inventoryRes, syncRes, recordsRes, outboxRecords] = await Promise.all([
         repo.getStations(),
         repo.getInventory(),
         repo.getSyncStatus(),
         repo.getSyncRecords(),
+        getOutboxAsRecords(),
       ])
       setState({
         loading: false,
@@ -31,7 +34,7 @@ export function useDashboardData() {
         stations: stationsRes.data,
         inventory: inventoryRes.data,
         syncStatus: syncRes.data,
-        syncRecords: recordsRes.data,
+        syncRecords: [...outboxRecords, ...recordsRes.data],
       })
     } catch (err) {
       setState((prev) => ({ ...prev, loading: false, error: err.message }))
@@ -48,10 +51,22 @@ export function useDashboardData() {
     return () => clearInterval(id)
   }, [isOnline, load])
 
-  // Reconnecting is exactly when a stale cached view is most likely to be wrong.
+  // Reconnecting is exactly when a stale cached view is most likely to be wrong, and
+  // exactly when anything queued in the offline outbox needs to be replayed.
   useEffect(() => {
-    if (isOnline) load()
+    if (isOnline && !wasOnline.current && !draining.current) {
+      draining.current = true
+      repo
+        .drainOutbox(() => load())
+        .finally(() => {
+          draining.current = false
+          load()
+        })
+    } else if (isOnline) {
+      load()
+    }
+    wasOnline.current = isOnline
   }, [isOnline, load])
 
-  return { ...state, isOnline, refresh: load }
+  return { ...state, isOnline, simulatedOffline, toggleSimulatedOffline, refresh: load }
 }

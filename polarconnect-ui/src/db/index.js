@@ -26,14 +26,24 @@ export async function cacheSyncRecords(records) {
   await db.syncRecords.bulkPut(records)
 }
 
-export async function queueOutboxWrite(entity, method, url, body) {
+export async function queueOutboxWrite(entity, method, url, body, priority, stationId) {
   return db.outbox.add({
     entity,
     method,
     url,
     body,
+    priority,
+    stationId,
     createdAt: Date.now(),
   })
+}
+
+export async function getOutbox() {
+  return db.outbox.toArray()
+}
+
+export async function removeOutboxEntry(localId) {
+  await db.outbox.delete(localId)
 }
 
 export async function getLastSyncedAt() {

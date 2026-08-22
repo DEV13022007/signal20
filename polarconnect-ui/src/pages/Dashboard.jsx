@@ -7,8 +7,18 @@ import { SyncQueuePanel } from '../components/SyncQueuePanel'
 import './Dashboard.css'
 
 export function Dashboard() {
-  const { loading, error, isOnline, servingFromCache, stations, inventory, syncStatus, syncRecords, refresh } =
-    useDashboardData()
+  const {
+    loading,
+    error,
+    servingFromCache,
+    stations,
+    inventory,
+    syncStatus,
+    syncRecords,
+    simulatedOffline,
+    toggleSimulatedOffline,
+    refresh,
+  } = useDashboardData()
   const [selectedId, setSelectedId] = useState(null)
 
   const activeId = selectedId ?? stations[0]?.id ?? null
@@ -54,12 +64,13 @@ export function Dashboard() {
   return (
     <div className="dashboard">
       <StatusBar
-        isOnline={isOnline}
         servingFromCache={servingFromCache}
         linkedCount={linkedCount}
         totalStations={stations.length}
         syncStatus={syncStatus}
         criticalCount={criticalCount}
+        simulatedOffline={simulatedOffline}
+        onToggleSimulatedOffline={toggleSimulatedOffline}
       />
       <div className="dashboard__body">
         <StationList
