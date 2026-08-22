@@ -1,15 +1,20 @@
 package com.example.sih26060.seed;
 
+import com.example.sih26060.entity.Equipment;
+import com.example.sih26060.entity.EquipmentStatus;
+import com.example.sih26060.entity.EquipmentType;
 import com.example.sih26060.entity.HealthStatus;
 import com.example.sih26060.entity.InventoryItem;
 import com.example.sih26060.entity.Personnel;
 import com.example.sih26060.entity.Priority;
 import com.example.sih26060.entity.Season;
 import com.example.sih26060.entity.Station;
+import com.example.sih26060.repository.EquipmentRepository;
 import com.example.sih26060.repository.InventoryItemRepository;
 import com.example.sih26060.repository.PersonnelRepository;
 import com.example.sih26060.repository.StationRepository;
 import com.example.sih26060.repository.SyncRecordRepository;
+import com.example.sih26060.service.EquipmentService;
 import com.example.sih26060.service.InventoryService;
 import com.example.sih26060.service.PersonnelService;
 import lombok.RequiredArgsConstructor;
@@ -33,9 +38,11 @@ public class DataSeeder implements CommandLineRunner {
     private final StationRepository stationRepository;
     private final InventoryItemRepository inventoryItemRepository;
     private final PersonnelRepository personnelRepository;
+    private final EquipmentRepository equipmentRepository;
     private final SyncRecordRepository syncRecordRepository;
     private final InventoryService inventoryService;
     private final PersonnelService personnelService;
+    private final EquipmentService equipmentService;
 
     @Value("${polarconnect.seed.enabled:true}")
     private boolean enabled;
@@ -49,6 +56,7 @@ public class DataSeeder implements CommandLineRunner {
         syncRecordRepository.deleteAll();
         inventoryItemRepository.deleteAll();
         personnelRepository.deleteAll();
+        equipmentRepository.deleteAll();
         stationRepository.deleteAll();
 
         LocalDate today = LocalDate.now();
@@ -126,8 +134,43 @@ public class DataSeeder implements CommandLineRunner {
         seedCrew(bharati, "Sameer Joshi", "Glaciologist", today.minusDays(10), today.plusDays(270), HealthStatus.MONITORING);
         seedCrew(bharati, "Ishaan Ahluwalia", "Vehicle Operator", today.minusDays(10), today.plusDays(270), HealthStatus.NOMINAL);
 
-        log.info("Seeded {} stations, {} inventory items, {} crew", stationRepository.count(),
-                inventoryItemRepository.count(), personnelRepository.count());
+        // Maitri: equipment in good shape overall, one HEATER already flagged DEGRADED.
+        seedEquipment(maitri, "Main Diesel Generator", EquipmentType.GENERATOR, EquipmentStatus.OPERATIONAL,
+                today.minusDays(40), today.plusDays(50));
+        seedEquipment(maitri, "Backup Generator", EquipmentType.GENERATOR, EquipmentStatus.OPERATIONAL,
+                today.minusDays(70), today.plusDays(20));
+        seedEquipment(maitri, "Dormitory Heater Unit 1", EquipmentType.HEATER, EquipmentStatus.DEGRADED,
+                today.minusDays(200), today.minusDays(20));
+        seedEquipment(maitri, "Dormitory Heater Unit 2", EquipmentType.HEATER, EquipmentStatus.OPERATIONAL,
+                today.minusDays(60), today.plusDays(30));
+        seedEquipment(maitri, "Satellite Uplink Dish", EquipmentType.COMMS, EquipmentStatus.OPERATIONAL,
+                today.minusDays(90), today.plusDays(90));
+        seedEquipment(maitri, "HF Radio Set", EquipmentType.COMMS, EquipmentStatus.OPERATIONAL,
+                today.minusDays(30), today.plusDays(150));
+        seedEquipment(maitri, "Snowmobile Alpha", EquipmentType.VEHICLE, EquipmentStatus.OPERATIONAL,
+                today.minusDays(15), today.plusDays(75));
+        seedEquipment(maitri, "Tracked Personnel Carrier", EquipmentType.VEHICLE, EquipmentStatus.OPERATIONAL,
+                today.minusDays(45), today.plusDays(45));
+
+        // Bharati: link is down, so all equipment mutations stay PENDING at EQUIPMENT
+        // priority. One generator has FAILED and one vehicle's service is overdue.
+        seedEquipment(bharati, "Main Diesel Generator", EquipmentType.GENERATOR, EquipmentStatus.FAILED,
+                today.minusDays(220), today.minusDays(40));
+        seedEquipment(bharati, "Backup Generator", EquipmentType.GENERATOR, EquipmentStatus.OPERATIONAL,
+                today.minusDays(50), today.plusDays(40));
+        seedEquipment(bharati, "Common Room Heater", EquipmentType.HEATER, EquipmentStatus.OPERATIONAL,
+                today.minusDays(75), today.plusDays(15));
+        seedEquipment(bharati, "Satellite Uplink Dish", EquipmentType.COMMS, EquipmentStatus.DEGRADED,
+                today.minusDays(160), today.minusDays(10));
+        seedEquipment(bharati, "VHF Radio Set", EquipmentType.COMMS, EquipmentStatus.OPERATIONAL,
+                today.minusDays(20), today.plusDays(160));
+        seedEquipment(bharati, "Snow Groomer", EquipmentType.VEHICLE, EquipmentStatus.OPERATIONAL,
+                today.minusDays(10), today.plusDays(80));
+        seedEquipment(bharati, "Amphibious Vehicle", EquipmentType.VEHICLE, EquipmentStatus.OPERATIONAL,
+                today.minusDays(100), today.plusDays(20));
+
+        log.info("Seeded {} stations, {} inventory items, {} crew, {} equipment", stationRepository.count(),
+                inventoryItemRepository.count(), personnelRepository.count(), equipmentRepository.count());
     }
 
     private void seedItem(Station station, String name, Priority priority, int quantity, String unit,
@@ -153,5 +196,17 @@ public class DataSeeder implements CommandLineRunner {
                 .healthStatus(healthStatus)
                 .build();
         personnelService.create(person, station.getId());
+    }
+
+    private void seedEquipment(Station station, String name, EquipmentType type, EquipmentStatus status,
+                                LocalDate lastServiceDate, LocalDate nextServiceDue) {
+        Equipment equipment = Equipment.builder()
+                .name(name)
+                .type(type)
+                .status(status)
+                .lastServiceDate(lastServiceDate)
+                .nextServiceDue(nextServiceDue)
+                .build();
+        equipmentService.create(equipment, station.getId());
     }
 }

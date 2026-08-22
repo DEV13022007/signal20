@@ -5,6 +5,7 @@ import {
   cacheInventoryItems,
   cacheSyncRecords,
   cachePersonnel,
+  cacheEquipment,
   setLastSyncedAt,
   queueOutboxWrite,
   getOutbox,
@@ -104,6 +105,18 @@ export const repo = {
   updatePersonnel: async (id, person) => {
     const updated = await api.updatePersonnel(id, person)
     await db.personnel.put(updated)
+    return updated
+  },
+
+  getEquipment: (stationId) =>
+    withCache(
+      () => api.getEquipment(stationId),
+      cacheEquipment,
+      stationId ? db.equipment.where('stationId').equals(stationId) : db.equipment,
+    ),
+  updateEquipment: async (id, equipment) => {
+    const updated = await api.updateEquipment(id, equipment)
+    await db.equipment.put(updated)
     return updated
   },
 

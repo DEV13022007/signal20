@@ -1,0 +1,50 @@
+.equipment-panel {
+  margin-top: var(--space-6);
+}
+
+.equipment-table {
+  font-size: 13px;
+  width: 100%;
+}
+
+.equipment-table th {
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--line);
+  padding: var(--space-2) var(--space-3);
+}
+
+.equipment-table td {
+  padding: var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.equipment-row--alert td {
+  background: rgba(255, 159, 67, 0.05);
+}
+
+.equipment-overdue {
+  margin-left: var(--space-2);
+}
+
+.equipment-select {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: var(--radius);
+  padding: 3px 6px;
+  border: 1px solid currentColor;
+  background: var(--ground-raised);
+}
+
+.equipment-select--operational { color: var(--accent); }
+.equipment-select--degraded { color: var(--warn); }
+.equipment-select--failed { color: var(--danger); }
+
+.equipment-select:disabled {
+  opacity: 0.5;
+}

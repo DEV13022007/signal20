@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { repo } from '../api/offlineRepo'
 import { PRIORITIES, PRIORITY_ORDER } from '../constants/priority'
 import { CrewPanel } from './CrewPanel'
+import { EquipmentPanel } from './EquipmentPanel'
 import './StationDetail.css'
 
 const EXPIRY_WARNING_DAYS = 90
@@ -21,7 +22,7 @@ function coord(lat, lon) {
   return `${Math.abs(lat).toFixed(2)}°${ns} ${Math.abs(lon).toFixed(2)}°${ew}`
 }
 
-export function StationDetail({ station, items, crew, onChanged }) {
+export function StationDetail({ station, items, crew, equipment, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [note, setNote] = useState(null)
@@ -211,6 +212,7 @@ export function StationDetail({ station, items, crew, onChanged }) {
       </table>
 
       <CrewPanel crew={crew} onChanged={onChanged} />
+      <EquipmentPanel equipment={equipment} onChanged={onChanged} />
     </div>
   )
 }
