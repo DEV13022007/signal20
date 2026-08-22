@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useClock, formatUtc } from '../hooks/useClock'
+import { useAuth } from '../hooks/useAuth'
 import { PRIORITIES } from '../constants/priority'
 import './StatusBar.css'
 
@@ -34,6 +35,7 @@ export function StatusBar({
   onToggleSimulatedOffline,
 }) {
   const now = useClock()
+  const { user, logout } = useAuth()
   const pendingByPriority = syncStatus?.pendingByPriority ?? {}
   const totalPending = syncStatus?.totalPending ?? 0
   const { dot, label } = LINK_STATE[linkState(linkedCount, totalStations)]
@@ -76,9 +78,19 @@ export function StatusBar({
       <div className="status-bar__clock mono">
         {servingFromCache && <span className="status-bar__cache-flag">CACHED</span>}
         {formatUtc(now)}
-        <Link className="hq-link" to="/hq">
-          HQ VIEW →
-        </Link>
+        {user?.role === 'HQ_ADMIN' && (
+          <Link className="hq-link" to="/hq">
+            HQ VIEW →
+          </Link>
+        )}
+        {user && (
+          <span className="session-info">
+            {user.username} · {user.role.replaceAll('_', ' ')}
+          </span>
+        )}
+        <button className="logout-btn" onClick={logout} type="button">
+          Log out
+        </button>
       </div>
     </header>
   )

@@ -37,23 +37,13 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // App shell + static assets: precached so the dashboard boots with no network at all.
+        // App shell + static assets: precached so the dashboard boots with no network at
+        // all. API responses are deliberately NOT cached at the service-worker level:
+        // Dexie (see src/db) is the single source of truth for offline reads, and a SW
+        // cache keyed only by URL — not by Authorization header — would serve one user's
+        // scoped response to the next user/role sharing the same browser.
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
         navigateFallback: '/index.html',
-        runtimeCaching: [
-          {
-            // API reads: serve cache instantly, refresh in the background when the
-            // satellite link happens to be up. Dexie is still the source of truth
-            // for anything the UI reads while fully offline.
-            urlPattern: ({ url, request }) =>
-              url.pathname.startsWith('/api/') && request.method === 'GET',
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'polarconnect-api-cache',
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
       },
       devOptions: {
         enabled: true,

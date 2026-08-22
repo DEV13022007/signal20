@@ -51,8 +51,12 @@ public class SyncRecord {
     @Column(nullable = false)
     private Priority priority;
 
-    @Lob
-    @Column(nullable = false)
+    // Plain text column, not @Lob: on Postgres, @Lob maps String to a true Large Object
+    // (oid) which can only be streamed inside the exact transaction that opened it — a
+    // derived query like findByStation_Id reads it via a separate path that Postgres
+    // rejects with "Large Objects may not be used in auto-commit mode". The payload is
+    // just a small JSON snapshot, so a plain text column avoids LO semantics entirely.
+    @Column(nullable = false, columnDefinition = "text")
     private String payload;
 
     @Enumerated(EnumType.STRING)

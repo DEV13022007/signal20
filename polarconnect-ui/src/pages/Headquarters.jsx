@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { useAlerts } from '../hooks/useAlerts'
 import { useClock, formatUtc } from '../hooks/useClock'
+import { useAuth } from '../hooks/useAuth'
 import './Headquarters.css'
 
 const FUEL_KEYWORDS = ['fuel', 'diesel', 'petrol', 'kerosene']
@@ -29,6 +30,7 @@ function timeAgo(iso) {
 export function Headquarters() {
   const { loading, stations, inventory, syncRecords } = useDashboardData()
   const { alerts } = useAlerts()
+  const { user, logout } = useAuth()
   const now = useClock()
 
   if (loading) {
@@ -47,9 +49,13 @@ export function Headquarters() {
           <h1 className="hq__title">Headquarters</h1>
         </div>
         <div className="hq__clock mono">{formatUtc(now)}</div>
+        {user && <span className="session-info">{user.username} · {user.role.replaceAll('_', ' ')}</span>}
         <Link className="hq__back" to="/">
           ← Station view
         </Link>
+        <button className="logout-btn" onClick={logout} type="button">
+          Log out
+        </button>
       </header>
 
       <div className="hq__grid">

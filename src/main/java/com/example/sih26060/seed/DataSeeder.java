@@ -7,13 +7,16 @@ import com.example.sih26060.entity.HealthStatus;
 import com.example.sih26060.entity.InventoryItem;
 import com.example.sih26060.entity.Personnel;
 import com.example.sih26060.entity.Priority;
+import com.example.sih26060.entity.Role;
 import com.example.sih26060.entity.Season;
 import com.example.sih26060.entity.Station;
+import com.example.sih26060.entity.User;
 import com.example.sih26060.repository.EquipmentRepository;
 import com.example.sih26060.repository.InventoryItemRepository;
 import com.example.sih26060.repository.PersonnelRepository;
 import com.example.sih26060.repository.StationRepository;
 import com.example.sih26060.repository.SyncRecordRepository;
+import com.example.sih26060.repository.UserRepository;
 import com.example.sih26060.service.EquipmentService;
 import com.example.sih26060.service.InventoryService;
 import com.example.sih26060.service.PersonnelService;
@@ -21,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -40,9 +44,11 @@ public class DataSeeder implements CommandLineRunner {
     private final PersonnelRepository personnelRepository;
     private final EquipmentRepository equipmentRepository;
     private final SyncRecordRepository syncRecordRepository;
+    private final UserRepository userRepository;
     private final InventoryService inventoryService;
     private final PersonnelService personnelService;
     private final EquipmentService equipmentService;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${polarconnect.seed.enabled:true}")
     private boolean enabled;
@@ -53,6 +59,7 @@ public class DataSeeder implements CommandLineRunner {
             return;
         }
 
+        userRepository.deleteAll();
         syncRecordRepository.deleteAll();
         inventoryItemRepository.deleteAll();
         personnelRepository.deleteAll();
@@ -169,8 +176,24 @@ public class DataSeeder implements CommandLineRunner {
         seedEquipment(bharati, "Amphibious Vehicle", EquipmentType.VEHICLE, EquipmentStatus.OPERATIONAL,
                 today.minusDays(100), today.plusDays(20));
 
-        log.info("Seeded {} stations, {} inventory items, {} crew, {} equipment", stationRepository.count(),
-                inventoryItemRepository.count(), personnelRepository.count(), equipmentRepository.count());
+        // One demo login per role. STATION_MANAGER/CREW are pinned to a station; HQ_ADMIN
+        // is not, which is exactly what AuthorizationSupport treats as "sees everything".
+        seedUser("maitri.manager", "manager123", Role.STATION_MANAGER, maitri);
+        seedUser("bharati.crew", "crew123", Role.CREW, bharati);
+        seedUser("hq.admin", "admin123", Role.HQ_ADMIN, null);
+
+        log.info("Seeded {} stations, {} inventory items, {} crew, {} equipment, {} users", stationRepository.count(),
+                inventoryItemRepository.count(), personnelRepository.count(), equipmentRepository.count(),
+                userRepository.count());
+    }
+
+    private void seedUser(String username, String rawPassword, Role role, Station station) {
+        userRepository.save(User.builder()
+                .username(username)
+                .passwordHash(passwordEncoder.encode(rawPassword))
+                .role(role)
+                .station(station)
+                .build());
     }
 
     private void seedItem(Station station, String name, Priority priority, int quantity, String unit,

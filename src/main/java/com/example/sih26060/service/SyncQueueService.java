@@ -95,11 +95,27 @@ public class SyncQueueService {
 
     @Transactional(readOnly = true)
     public SyncOverallStatus getOverallStatus() {
-        List<SyncRecord> pending = syncRecordRepository.findByStatus(SyncStatus.PENDING);
-        Map<Priority, Long> byPriority = countByPriority(pending);
-        long totalSynced = syncRecordRepository.countByStatus(SyncStatus.SYNCED);
+        return getOverallStatus(null);
+    }
 
-        List<StationLinkStatus> stations = stationRepository.findAll().stream()
+    /**
+     * When scopedStationId is non-null (a STATION_MANAGER/CREW caller), every figure is
+     * narrowed to that one station instead of the whole network.
+     */
+    @Transactional(readOnly = true)
+    public SyncOverallStatus getOverallStatus(Long scopedStationId) {
+        List<SyncRecord> pending = scopedStationId != null
+                ? syncRecordRepository.findByStation_IdAndStatus(scopedStationId, SyncStatus.PENDING)
+                : syncRecordRepository.findByStatus(SyncStatus.PENDING);
+        Map<Priority, Long> byPriority = countByPriority(pending);
+        long totalSynced = scopedStationId != null
+                ? syncRecordRepository.countByStation_IdAndStatus(scopedStationId, SyncStatus.SYNCED)
+                : syncRecordRepository.countByStatus(SyncStatus.SYNCED);
+
+        List<Station> stationList = scopedStationId != null
+                ? stationRepository.findById(scopedStationId).map(List::of).orElseGet(List::of)
+                : stationRepository.findAll();
+        List<StationLinkStatus> stations = stationList.stream()
                 .map(s -> new StationLinkStatus(
                         s.getId(),
                         s.getName(),

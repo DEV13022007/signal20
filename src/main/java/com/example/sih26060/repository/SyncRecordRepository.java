@@ -12,6 +12,8 @@ public interface SyncRecordRepository extends JpaRepository<SyncRecord, Long> {
 
     List<SyncRecord> findByStation_IdAndStatus(Long stationId, SyncStatus status);
 
+    List<SyncRecord> findByStation_Id(Long stationId);
+
     long countByStatus(SyncStatus status);
 
     long countByStation_IdAndStatus(Long stationId, SyncStatus status);

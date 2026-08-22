@@ -1,14 +1,20 @@
 import { isSimulatedOffline } from '../lib/simulateOffline'
+import { getAuthToken } from '../lib/authStore'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
+
+function authHeaders() {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 export async function request(path, options = {}) {
   if (isSimulatedOffline()) {
     throw new TypeError('Failed to fetch (simulated offline)')
   }
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...options.headers },
   })
   if (!res.ok) {
     throw new Error(`${options.method ?? 'GET'} ${path} failed: ${res.status}`)
@@ -17,7 +23,7 @@ export async function request(path, options = {}) {
 }
 
 export async function downloadReport(stationId) {
-  const res = await fetch(`${BASE_URL}/stations/${stationId}/report`)
+  const res = await fetch(`${BASE_URL}/stations/${stationId}/report`, { headers: authHeaders() })
   if (!res.ok) {
     throw new Error(`Report generation failed: ${res.status}`)
   }
@@ -36,6 +42,8 @@ export async function downloadReport(stationId) {
 }
 
 export const api = {
+  login: (username, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+
   getStations: () => request('/stations'),
   setSatelliteLink: (id, active) =>
     request(`/stations/${id}/satellite-link?active=${active}`, { method: 'PATCH' }),
