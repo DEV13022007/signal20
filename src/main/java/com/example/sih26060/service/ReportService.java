@@ -24,18 +24,22 @@ import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 /**
  * Renders a station status report (inventory, crew, equipment, sync stats) to PDF using
  * PDFBox directly — no template engine, just a small hand-rolled layout cursor since the
- * report is short and single-column.
+ * report is short and single-column. Tabular data is drawn as real columns (measured text
+ * positioned at fixed x-offsets) rather than monospace-padded strings, so rows can't overflow
+ * the page width the way fixed-width string formatting can.
  */
 @Service
 @RequiredArgsConstructor
@@ -46,6 +50,19 @@ public class ReportService {
     private static final float PAGE_HEIGHT = PDRectangle.A4.getHeight();
     private static final int EXPIRY_WARNING_DAYS = 90;
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm 'UTC'");
+
+    private static final Color ACCENT = new Color(37, 99, 235);
+    private static final Color GRAY_700 = new Color(55, 65, 81);
+    private static final Color GRAY_500 = new Color(107, 114, 128);
+    private static final Color HEADER_BG = new Color(241, 245, 249);
+    private static final Color ROW_ALT_BG = new Color(249, 250, 251);
+    private static final Color BORDER = new Color(209, 213, 219);
+    private static final Color RED = new Color(185, 28, 28);
+    private static final Color RED_BG = new Color(254, 226, 226);
+    private static final Color AMBER = new Color(180, 83, 9);
+    private static final Color AMBER_BG = new Color(254, 243, 199);
+    private static final Color GREEN = new Color(21, 128, 61);
+    private static final Color GREEN_BG = new Color(220, 252, 231);
 
     private final StationRepository stationRepository;
     private final InventoryItemRepository inventoryItemRepository;
@@ -71,7 +88,7 @@ public class ReportService {
                 writeInventorySection(cursor, inventory);
                 writeCrewSection(cursor, crew);
                 writeEquipmentSection(cursor, equipment);
-                writeSyncSection(cursor, syncStatus, totalSynced, station);
+                writeSyncSection(cursor, syncStatus, totalSynced);
             } finally {
                 cursor.close();
             }
@@ -85,31 +102,43 @@ public class ReportService {
     }
 
     private void writeHeader(ReportCursor c, Station station) throws IOException {
-        c.writeLine(c.bold(16), "PolarConnect — Station Status Report");
+        c.titleLine("PolarConnect", "Station Status Report");
         c.writeLine(c.bold(13), "%s (%s)".formatted(station.getName(), station.getCode()));
-        c.writeLine(c.regular(10), "%s · Capacity %s · %s season · Operational since %s".formatted(
+        c.writeLine(c.regular(9.5f, GRAY_700), "%s  ·  Capacity %s  ·  %s season  ·  Operational since %s".formatted(
                 station.getCountry() != null ? station.getCountry() : "Unknown territory",
                 station.getCapacity() != null ? station.getCapacity() : "—",
                 station.getCurrentSeason() != null ? station.getCurrentSeason() : "—",
                 station.getOperationalSinceYear() != null ? station.getOperationalSinceYear() : "—"));
-        c.writeLine(c.regular(10), "Satellite link: %s".formatted(
-                Boolean.TRUE.equals(station.getSatelliteLinkActive()) ? "ACTIVE" : "DOWN"));
-        c.writeLine(c.italic(9), "Generated " + TIMESTAMP_FORMAT.format(java.time.Instant.now()
+        boolean linkActive = Boolean.TRUE.equals(station.getSatelliteLinkActive());
+        c.writeLineWithBadge("Satellite link:", linkActive ? "ACTIVE" : "DOWN",
+                linkActive ? GREEN_BG : RED_BG, linkActive ? GREEN : RED);
+        c.writeLine(c.italic(8.5f, GRAY_500), "Generated " + TIMESTAMP_FORMAT.format(java.time.Instant.now()
                 .atZone(java.time.ZoneOffset.UTC)));
-        c.gap(10);
+        c.gap(6);
     }
 
     private void writeInventorySection(ReportCursor c, List<InventoryItem> items) throws IOException {
         c.writeSectionTitle("Inventory Position · " + items.size() + " items");
         if (items.isEmpty()) {
-            c.writeLine(c.italic(10), "No inventory recorded.");
+            c.writeLine(c.italic(10, GRAY_500), "No inventory recorded.");
             c.gap(8);
             return;
         }
+        ReportCursor.Column[] columns = {
+                new ReportCursor.Column("Category", 55),
+                new ReportCursor.Column("Item", 150),
+                new ReportCursor.Column("Qty", 40, true),
+                new ReportCursor.Column("Min", 55, true),
+                new ReportCursor.Column("Expiry", 75),
+                new ReportCursor.Column("Status", 120),
+        };
+        c.tableHeader(columns);
+
         LocalDate today = LocalDate.now();
         List<InventoryItem> sorted = items.stream()
                 .sorted(Comparator.comparing(i -> i.getPriority().ordinal()))
                 .toList();
+        boolean zebra = false;
         for (InventoryItem item : sorted) {
             boolean low = item.getMinThreshold() != null && item.getQuantity() <= item.getMinThreshold();
             Long daysUntilExpiry = item.getExpiryDate() != null
@@ -118,94 +147,137 @@ public class ReportService {
             boolean expired = daysUntilExpiry != null && daysUntilExpiry < 0;
             boolean expiring = daysUntilExpiry != null && !expired && daysUntilExpiry <= EXPIRY_WARNING_DAYS;
 
-            StringBuilder flags = new StringBuilder();
-            if (expired) flags.append(" [EXPIRED]");
-            else if (expiring) flags.append(" [EXPIRING · %dd]".formatted(daysUntilExpiry));
-            if (low) flags.append(" [LOW STOCK]");
+            List<String> flags = new ArrayList<>();
+            if (expired) flags.add("EXPIRED");
+            else if (expiring) flags.add("EXPIRING · %dd".formatted(daysUntilExpiry));
+            if (low) flags.add("LOW STOCK");
+            String status = flags.isEmpty() ? "OK" : String.join(" · ", flags);
+            Color statusColor = expired ? RED : (expiring || low ? AMBER : GREEN);
 
-            String line = "%-8s %-28s qty %-6s thr %-6s exp %-12s%s".formatted(
-                    item.getPriority(), truncate(item.getName(), 28), item.getQuantity(),
-                    item.getMinThreshold() != null ? item.getMinThreshold() : "—",
-                    item.getExpiryDate() != null ? item.getExpiryDate() : "—",
-                    flags);
-            c.writeLine(c.mono(9), line);
+            c.tableRow(columns, new String[]{
+                    item.getPriority().toString(),
+                    item.getName(),
+                    String.valueOf(item.getQuantity()),
+                    item.getMinThreshold() != null ? String.valueOf(item.getMinThreshold()) : "—",
+                    item.getExpiryDate() != null ? item.getExpiryDate().toString() : "—",
+                    status,
+            }, new Color[]{null, null, null, null, null, statusColor}, zebra);
+            zebra = !zebra;
         }
-        c.gap(8);
+        c.tableFooterRule(columns);
+        c.gap(10);
     }
 
     private void writeCrewSection(ReportCursor c, List<Personnel> crew) throws IOException {
         c.writeSectionTitle("Crew Roster · " + crew.size() + " personnel");
         if (crew.isEmpty()) {
-            c.writeLine(c.italic(10), "No crew recorded.");
+            c.writeLine(c.italic(10, GRAY_500), "No crew recorded.");
             c.gap(8);
             return;
         }
+        ReportCursor.Column[] columns = {
+                new ReportCursor.Column("Name", 130),
+                new ReportCursor.Column("Role", 115),
+                new ReportCursor.Column("Rotation", 140),
+                new ReportCursor.Column("Health", 110),
+        };
+        c.tableHeader(columns);
+
         List<Personnel> sorted = crew.stream()
                 .sorted(Comparator.comparing((Personnel p) -> p.getHealthStatus().ordinal()).reversed())
                 .toList();
+        boolean zebra = false;
         for (Personnel person : sorted) {
-            String line = "%-24s %-22s %s → %-12s [%s]".formatted(
-                    truncate(person.getName(), 24), truncate(person.getRole(), 22),
+            Color healthColor = switch (person.getHealthStatus()) {
+                case CRITICAL -> RED;
+                case MONITORING -> AMBER;
+                case NOMINAL -> GREEN;
+            };
+            String rotation = "%s - %s".formatted(
                     person.getRotationStart() != null ? person.getRotationStart() : "—",
-                    person.getRotationEnd() != null ? person.getRotationEnd() : "—",
-                    person.getHealthStatus());
-            c.writeLine(c.mono(9), line);
+                    person.getRotationEnd() != null ? person.getRotationEnd() : "—");
+            c.tableRow(columns, new String[]{
+                    person.getName(),
+                    person.getRole(),
+                    rotation,
+                    person.getHealthStatus().toString(),
+            }, new Color[]{null, null, null, healthColor}, zebra);
+            zebra = !zebra;
         }
-        c.gap(8);
+        c.tableFooterRule(columns);
+        c.gap(10);
     }
 
     private void writeEquipmentSection(ReportCursor c, List<Equipment> equipment) throws IOException {
         c.writeSectionTitle("Equipment Status · " + equipment.size() + " units");
         if (equipment.isEmpty()) {
-            c.writeLine(c.italic(10), "No equipment recorded.");
+            c.writeLine(c.italic(10, GRAY_500), "No equipment recorded.");
             c.gap(8);
             return;
         }
+        ReportCursor.Column[] columns = {
+                new ReportCursor.Column("Type", 65),
+                new ReportCursor.Column("Name", 145),
+                new ReportCursor.Column("Status", 90),
+                new ReportCursor.Column("Last Service", 75),
+                new ReportCursor.Column("Next Due", 120),
+        };
+        c.tableHeader(columns);
+
         LocalDate today = LocalDate.now();
         List<Equipment> sorted = equipment.stream()
                 .sorted(Comparator.comparing((Equipment e) -> e.getStatus().ordinal()).reversed())
                 .toList();
+        boolean zebra = false;
         for (Equipment item : sorted) {
             boolean overdue = item.getNextServiceDue() != null && item.getNextServiceDue().isBefore(today);
-            String line = "%-10s %-26s [%-11s] service %-12s due %-12s%s".formatted(
-                    item.getType(), truncate(item.getName(), 26), item.getStatus(),
-                    item.getLastServiceDate() != null ? item.getLastServiceDate() : "—",
-                    item.getNextServiceDue() != null ? item.getNextServiceDue() : "—",
-                    overdue ? " [OVERDUE]" : "");
-            c.writeLine(c.mono(9), line);
+            Color statusColor = switch (item.getStatus()) {
+                case FAILED -> RED;
+                case DEGRADED -> AMBER;
+                case OPERATIONAL -> GREEN;
+            };
+            String nextDue = (item.getNextServiceDue() != null ? item.getNextServiceDue().toString() : "—")
+                    + (overdue ? "  (OVERDUE)" : "");
+            c.tableRow(columns, new String[]{
+                    item.getType().toString(),
+                    item.getName(),
+                    item.getStatus().toString(),
+                    item.getLastServiceDate() != null ? item.getLastServiceDate().toString() : "—",
+                    nextDue,
+            }, new Color[]{null, null, statusColor, null, overdue ? RED : null}, zebra);
+            zebra = !zebra;
         }
-        c.gap(8);
+        c.tableFooterRule(columns);
+        c.gap(10);
     }
 
-    private void writeSyncSection(ReportCursor c, StationSyncStatus syncStatus, long totalSynced, Station station)
+    private void writeSyncSection(ReportCursor c, StationSyncStatus syncStatus, long totalSynced)
             throws IOException {
         c.writeSectionTitle("Sync Statistics");
-        c.writeLine(c.regular(10), "Pending operations: " + syncStatus.pendingCount());
-        c.writeLine(c.regular(10), "Synced operations: " + totalSynced);
+        c.writeStat("Pending operations:  ", String.valueOf(syncStatus.pendingCount()),
+                syncStatus.pendingCount() > 0 ? AMBER : GREEN);
+        c.writeStat("Synced operations:  ", String.valueOf(totalSynced), GRAY_700);
         for (Priority priority : Priority.values()) {
             long count = syncStatus.pendingByPriority().getOrDefault(priority, 0L);
             if (count > 0) {
-                c.writeLine(c.mono(9), "  %-10s %d pending".formatted(priority, count));
+                c.writeLine(c.regular(9, GRAY_500), "-  %s: %d pending".formatted(priority, count));
             }
         }
         c.gap(8);
     }
 
-    private static String truncate(String value, int maxLength) {
-        if (value == null) return "";
-        return value.length() <= maxLength ? value : value.substring(0, maxLength - 1) + "…";
-    }
-
     /**
      * Tracks the current page/content-stream and vertical cursor position, opening a new
-     * page automatically when the current one runs out of room.
+     * page automatically when the current one runs out of room. Also hosts the column-table
+     * drawing helpers used by the report sections above.
      */
     private static final class ReportCursor {
+        private static final float CELL_PAD = 4f;
+
         private final PDDocument document;
         private final PDFont regularFont;
         private final PDFont boldFont;
         private final PDFont italicFont;
-        private final PDFont monoFont;
         private PDPageContentStream stream;
         private float y;
 
@@ -214,44 +286,105 @@ public class ReportService {
             this.regularFont = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
             this.boldFont = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
             this.italicFont = new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE);
-            this.monoFont = new PDType1Font(Standard14Fonts.FontName.COURIER);
             newPage();
         }
 
-        record Style(PDFont font, float size) {
+        record Column(String header, float width, boolean rightAlign) {
+            Column(String header, float width) {
+                this(header, width, false);
+            }
+        }
+
+        record Style(PDFont font, float size, Color color) {
         }
 
         Style bold(float size) {
-            return new Style(boldFont, size);
+            return new Style(boldFont, size, Color.BLACK);
         }
 
-        Style regular(float size) {
-            return new Style(regularFont, size);
+        Style regular(float size, Color color) {
+            return new Style(regularFont, size, color);
         }
 
-        Style italic(float size) {
-            return new Style(italicFont, size);
+        Style italic(float size, Color color) {
+            return new Style(italicFont, size, color);
         }
 
-        Style mono(float size) {
-            return new Style(monoFont, size);
+        void titleLine(String brand, String subtitle) throws IOException {
+            float size = 18f;
+            float lineHeight = size + 8;
+            ensureSpace(lineHeight);
+            y -= lineHeight;
+            drawText(boldFont, size, ACCENT, brand, MARGIN, y);
+            float brandWidth = textWidth(boldFont, size, brand);
+            drawText(regularFont, 12f, GRAY_700, subtitle, MARGIN + brandWidth + 8, y + 3);
         }
 
         void writeSectionTitle(String title) throws IOException {
-            gap(6);
+            gap(8);
             drawRule();
             writeLine(bold(12), title);
         }
 
         void writeLine(Style style, String text) throws IOException {
-            float lineHeight = style.size() + 4;
+            float lineHeight = style.size() + 5;
             ensureSpace(lineHeight);
             y -= lineHeight;
-            stream.beginText();
-            stream.setFont(style.font(), style.size());
-            stream.newLineAtOffset(MARGIN, y);
-            stream.showText(sanitize(text));
-            stream.endText();
+            drawText(style.font(), style.size(), style.color(), text, MARGIN, y);
+        }
+
+        void writeLineWithBadge(String label, String badgeText, Color badgeBg, Color badgeFg) throws IOException {
+            float size = 9.5f;
+            float lineHeight = size + 6;
+            ensureSpace(lineHeight);
+            y -= lineHeight;
+            drawText(regularFont, size, GRAY_700, label, MARGIN, y);
+            float labelWidth = textWidth(regularFont, size, label);
+            drawBadge(badgeText, MARGIN + labelWidth + 6, y, badgeBg, badgeFg);
+        }
+
+        void writeStat(String label, String value, Color valueColor) throws IOException {
+            float size = 10f;
+            float lineHeight = size + 6;
+            ensureSpace(lineHeight);
+            y -= lineHeight;
+            drawText(regularFont, size, GRAY_700, label, MARGIN, y);
+            float labelWidth = textWidth(regularFont, size, label);
+            drawText(boldFont, size, valueColor, value, MARGIN + labelWidth, y);
+        }
+
+        void tableHeader(Column[] columns) throws IOException {
+            float rowHeight = 18f;
+            ensureSpace(rowHeight);
+            y -= rowHeight;
+            float width = totalWidth(columns);
+            fillRect(MARGIN, y, width, rowHeight, HEADER_BG);
+            float x = MARGIN;
+            for (Column column : columns) {
+                drawCell(boldFont, 8.5f, GRAY_700, column.header(), x, y + 6.5f, column.width(), column.rightAlign());
+                x += column.width();
+            }
+            strokeLine(MARGIN, y, MARGIN + width, y, BORDER);
+        }
+
+        void tableRow(Column[] columns, String[] values, Color[] valueColors, boolean zebra) throws IOException {
+            float rowHeight = 15f;
+            ensureSpace(rowHeight);
+            y -= rowHeight;
+            float width = totalWidth(columns);
+            if (zebra) {
+                fillRect(MARGIN, y, width, rowHeight, ROW_ALT_BG);
+            }
+            float x = MARGIN;
+            for (int i = 0; i < columns.length; i++) {
+                Color color = valueColors != null && valueColors[i] != null ? valueColors[i] : Color.BLACK;
+                drawCell(regularFont, 8.5f, color, values[i], x, y + 4.5f, columns[i].width(), columns[i].rightAlign());
+                x += columns[i].width();
+            }
+        }
+
+        void tableFooterRule(Column[] columns) throws IOException {
+            strokeLine(MARGIN, y, MARGIN + totalWidth(columns), y, BORDER);
         }
 
         void gap(float height) throws IOException {
@@ -261,10 +394,7 @@ public class ReportService {
 
         void drawRule() throws IOException {
             ensureSpace(4);
-            stream.setLineWidth(0.5f);
-            stream.moveTo(MARGIN, y);
-            stream.lineTo(PAGE_WIDTH - MARGIN, y);
-            stream.stroke();
+            strokeLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, BORDER);
             y -= 6;
         }
 
@@ -284,6 +414,85 @@ public class ReportService {
 
         void close() throws IOException {
             stream.close();
+        }
+
+        private static float totalWidth(Column[] columns) {
+            float total = 0;
+            for (Column column : columns) {
+                total += column.width();
+            }
+            return total;
+        }
+
+        private void drawCell(PDFont font, float size, Color color, String text, float x, float baselineY,
+                float width, boolean rightAlign) throws IOException {
+            String fitted = fitToWidth(font, size, sanitize(text), width - CELL_PAD * 2);
+            float tx;
+            if (rightAlign) {
+                tx = x + width - CELL_PAD - textWidth(font, size, fitted);
+            } else {
+                tx = x + CELL_PAD;
+            }
+            drawText(font, size, color, fitted, tx, baselineY);
+        }
+
+        private void drawText(PDFont font, float size, Color color, String text, float x, float baselineY)
+                throws IOException {
+            stream.setNonStrokingColor(color);
+            stream.beginText();
+            stream.setFont(font, size);
+            stream.newLineAtOffset(x, baselineY);
+            stream.showText(sanitize(text));
+            stream.endText();
+        }
+
+        private void drawBadge(String text, float x, float baselineY, Color bg, Color fg) throws IOException {
+            float size = 8f;
+            float textW = textWidth(boldFont, size, text);
+            fillRect(x, baselineY - 2.5f, textW + 10f, size + 5f, bg);
+            drawText(boldFont, size, fg, text, x + 5f, baselineY);
+        }
+
+        private void fillRect(float x, float y, float width, float height, Color color) throws IOException {
+            stream.setNonStrokingColor(color);
+            stream.addRect(x, y, width, height);
+            stream.fill();
+        }
+
+        private void strokeLine(float x1, float y1, float x2, float y2, Color color) throws IOException {
+            stream.setStrokingColor(color);
+            stream.setLineWidth(0.75f);
+            stream.moveTo(x1, y1);
+            stream.lineTo(x2, y2);
+            stream.stroke();
+        }
+
+        private static float textWidth(PDFont font, float size, String text) {
+            try {
+                return font.getStringWidth(sanitize(text)) / 1000f * size;
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        /** Truncates text with a trailing "..." so it never overflows the given column width. */
+        private static String fitToWidth(PDFont font, float size, String text, float maxWidth) throws IOException {
+            if (textWidth(font, size, text) <= maxWidth) {
+                return text;
+            }
+            String ellipsis = "...";
+            float ellipsisWidth = textWidth(font, size, ellipsis);
+            StringBuilder sb = new StringBuilder();
+            float width = 0;
+            for (char ch : text.toCharArray()) {
+                float charWidth = font.getStringWidth(String.valueOf(ch)) / 1000f * size;
+                if (width + charWidth + ellipsisWidth > maxWidth) {
+                    break;
+                }
+                sb.append(ch);
+                width += charWidth;
+            }
+            return sb + ellipsis;
         }
 
         private static String sanitize(String text) {
