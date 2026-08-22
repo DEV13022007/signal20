@@ -1,13 +1,17 @@
 package com.example.sih26060.seed;
 
+import com.example.sih26060.entity.HealthStatus;
 import com.example.sih26060.entity.InventoryItem;
+import com.example.sih26060.entity.Personnel;
 import com.example.sih26060.entity.Priority;
 import com.example.sih26060.entity.Season;
 import com.example.sih26060.entity.Station;
 import com.example.sih26060.repository.InventoryItemRepository;
+import com.example.sih26060.repository.PersonnelRepository;
 import com.example.sih26060.repository.StationRepository;
 import com.example.sih26060.repository.SyncRecordRepository;
 import com.example.sih26060.service.InventoryService;
+import com.example.sih26060.service.PersonnelService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,8 +32,10 @@ public class DataSeeder implements CommandLineRunner {
 
     private final StationRepository stationRepository;
     private final InventoryItemRepository inventoryItemRepository;
+    private final PersonnelRepository personnelRepository;
     private final SyncRecordRepository syncRecordRepository;
     private final InventoryService inventoryService;
+    private final PersonnelService personnelService;
 
     @Value("${polarconnect.seed.enabled:true}")
     private boolean enabled;
@@ -42,6 +48,7 @@ public class DataSeeder implements CommandLineRunner {
 
         syncRecordRepository.deleteAll();
         inventoryItemRepository.deleteAll();
+        personnelRepository.deleteAll();
         stationRepository.deleteAll();
 
         LocalDate today = LocalDate.now();
@@ -94,7 +101,33 @@ public class DataSeeder implements CommandLineRunner {
         seedItem(bharati, "Stationery Kits", Priority.ROUTINE, 15, "units", 5, null);
         seedItem(bharati, "Cold Weather Gear", Priority.ROUTINE, 25, "units", 8, null);
 
-        log.info("Seeded {} stations (MAITRI linked/synced, BHARATI unlinked/pending)", stationRepository.count());
+        // Maitri: 8 crew, one under MONITORING.
+        seedCrew(maitri, "Ananya Rao", "Station Leader", today.minusDays(120), today.plusDays(160), HealthStatus.NOMINAL);
+        seedCrew(maitri, "Vikram Sethi", "Medical Officer", today.minusDays(120), today.plusDays(160), HealthStatus.NOMINAL);
+        seedCrew(maitri, "Rahul Menon", "Chief Engineer", today.minusDays(95), today.plusDays(185), HealthStatus.MONITORING);
+        seedCrew(maitri, "Priya Nair", "Communications Officer", today.minusDays(95), today.plusDays(185), HealthStatus.NOMINAL);
+        seedCrew(maitri, "Suresh Pillai", "Cook", today.minusDays(60), today.plusDays(220), HealthStatus.NOMINAL);
+        seedCrew(maitri, "Devika Kulkarni", "Glaciologist", today.minusDays(60), today.plusDays(220), HealthStatus.NOMINAL);
+        seedCrew(maitri, "Arjun Bhatt", "Mechanic", today.minusDays(30), today.plusDays(250), HealthStatus.NOMINAL);
+        seedCrew(maitri, "Meera Iyer", "Meteorologist", today.minusDays(30), today.plusDays(250), HealthStatus.NOMINAL);
+
+        // Bharati: 12 crew, one under CRITICAL to give the alerting module (task 4) and
+        // the report module (task 5) a live case to demonstrate against.
+        seedCrew(bharati, "Kabir Malhotra", "Station Leader", today.minusDays(140), today.plusDays(140), HealthStatus.NOMINAL);
+        seedCrew(bharati, "Neha Kapoor", "Medical Officer", today.minusDays(140), today.plusDays(140), HealthStatus.NOMINAL);
+        seedCrew(bharati, "Rajesh Kumar", "Chief Engineer", today.minusDays(110), today.plusDays(170), HealthStatus.CRITICAL);
+        seedCrew(bharati, "Sunita Deshmukh", "Communications Officer", today.minusDays(110), today.plusDays(170), HealthStatus.NOMINAL);
+        seedCrew(bharati, "Amit Verma", "Cook", today.minusDays(80), today.plusDays(200), HealthStatus.NOMINAL);
+        seedCrew(bharati, "Lakshmi Narayan", "Marine Biologist", today.minusDays(80), today.plusDays(200), HealthStatus.NOMINAL);
+        seedCrew(bharati, "Farhan Sheikh", "Mechanic", today.minusDays(50), today.plusDays(230), HealthStatus.NOMINAL);
+        seedCrew(bharati, "Divya Krishnan", "Meteorologist", today.minusDays(50), today.plusDays(230), HealthStatus.NOMINAL);
+        seedCrew(bharati, "Rohan Chawla", "Electrician", today.minusDays(20), today.plusDays(260), HealthStatus.NOMINAL);
+        seedCrew(bharati, "Pooja Reddy", "Logistics Officer", today.minusDays(20), today.plusDays(260), HealthStatus.NOMINAL);
+        seedCrew(bharati, "Sameer Joshi", "Glaciologist", today.minusDays(10), today.plusDays(270), HealthStatus.MONITORING);
+        seedCrew(bharati, "Ishaan Ahluwalia", "Vehicle Operator", today.minusDays(10), today.plusDays(270), HealthStatus.NOMINAL);
+
+        log.info("Seeded {} stations, {} inventory items, {} crew", stationRepository.count(),
+                inventoryItemRepository.count(), personnelRepository.count());
     }
 
     private void seedItem(Station station, String name, Priority priority, int quantity, String unit,
@@ -108,5 +141,17 @@ public class DataSeeder implements CommandLineRunner {
                 .expiryDate(expiryDate)
                 .build();
         inventoryService.create(item, station.getId());
+    }
+
+    private void seedCrew(Station station, String name, String role, LocalDate rotationStart,
+                           LocalDate rotationEnd, HealthStatus healthStatus) {
+        Personnel person = Personnel.builder()
+                .name(name)
+                .role(role)
+                .rotationStart(rotationStart)
+                .rotationEnd(rotationEnd)
+                .healthStatus(healthStatus)
+                .build();
+        personnelService.create(person, station.getId());
     }
 }

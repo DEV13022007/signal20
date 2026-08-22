@@ -14,6 +14,10 @@ db.version(1).stores({
   meta: 'key',
 })
 
+db.version(2).stores({
+  personnel: 'id, stationId, healthStatus',
+})
+
 export async function cacheStations(stations) {
   await db.stations.bulkPut(stations)
 }
@@ -24,6 +28,10 @@ export async function cacheInventoryItems(items) {
 
 export async function cacheSyncRecords(records) {
   await db.syncRecords.bulkPut(records)
+}
+
+export async function cachePersonnel(personnel) {
+  await db.personnel.bulkPut(personnel)
 }
 
 export async function queueOutboxWrite(entity, method, url, body, priority, stationId) {

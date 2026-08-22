@@ -12,6 +12,7 @@ export function useDashboardData() {
     servingFromCache: false,
     stations: [],
     inventory: [],
+    personnel: [],
     syncStatus: null,
     syncRecords: [],
   })
@@ -20,9 +21,10 @@ export function useDashboardData() {
 
   const load = useCallback(async () => {
     try {
-      const [stationsRes, inventoryRes, syncRes, recordsRes, outboxRecords] = await Promise.all([
+      const [stationsRes, inventoryRes, personnelRes, syncRes, recordsRes, outboxRecords] = await Promise.all([
         repo.getStations(),
         repo.getInventory(),
+        repo.getPersonnel(),
         repo.getSyncStatus(),
         repo.getSyncRecords(),
         getOutboxAsRecords(),
@@ -33,6 +35,7 @@ export function useDashboardData() {
         servingFromCache: stationsRes.fromCache || inventoryRes.fromCache || syncRes.fromCache,
         stations: stationsRes.data,
         inventory: inventoryRes.data,
+        personnel: personnelRes.data,
         syncStatus: syncRes.data,
         syncRecords: [...outboxRecords, ...recordsRes.data],
       })

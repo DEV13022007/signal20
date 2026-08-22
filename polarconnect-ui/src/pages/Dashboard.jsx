@@ -13,6 +13,7 @@ export function Dashboard() {
     servingFromCache,
     stations,
     inventory,
+    personnel,
     syncStatus,
     syncRecords,
     simulatedOffline,
@@ -34,12 +35,14 @@ export function Dashboard() {
   }, [syncRecords])
 
   const itemsForStation = inventory.filter((item) => item.stationId === activeId)
+  const crewForStation = personnel.filter((person) => person.stationId === activeId)
 
   const criticalCount = useMemo(() => {
     const failedSyncs = syncRecords.filter((r) => r.status === 'FAILED').length
     const lowStock = inventory.filter((i) => i.minThreshold != null && i.quantity <= i.minThreshold).length
-    return failedSyncs + lowStock
-  }, [syncRecords, inventory])
+    const criticalCrew = personnel.filter((p) => p.healthStatus === 'CRITICAL').length
+    return failedSyncs + lowStock + criticalCrew
+  }, [syncRecords, inventory, personnel])
 
   const linkedCount = stations.filter((s) => s.satelliteLinkActive).length
 
@@ -79,7 +82,7 @@ export function Dashboard() {
           selectedId={activeId}
           onSelect={setSelectedId}
         />
-        <StationDetail station={selectedStation} items={itemsForStation} onChanged={refresh} />
+        <StationDetail station={selectedStation} items={itemsForStation} crew={crewForStation} onChanged={refresh} />
         <SyncQueuePanel records={syncRecords} stationsById={stationsById} />
       </div>
     </div>

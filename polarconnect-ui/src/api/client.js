@@ -26,6 +26,10 @@ export const api = {
   createInventoryItem: (stationId, item) =>
     request(`/inventory?stationId=${stationId}`, { method: 'POST', body: JSON.stringify(item) }),
 
+  getPersonnel: (stationId) =>
+    request(stationId ? `/personnel?stationId=${stationId}` : '/personnel'),
+  updatePersonnel: (id, person) => request(`/personnel/${id}`, { method: 'PUT', body: JSON.stringify(person) }),
+
   getSyncStatus: () => request('/sync/status'),
   getStationSyncStatus: (stationId) => request(`/sync/status/${stationId}`),
   getSyncRecords: (status) => request(status ? `/sync/records?status=${status}` : '/sync/records'),
