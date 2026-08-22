@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useClock, formatUtc } from '../hooks/useClock'
 import { PRIORITIES } from '../constants/priority'
 import './StatusBar.css'
@@ -75,6 +76,9 @@ export function StatusBar({
       <div className="status-bar__clock mono">
         {servingFromCache && <span className="status-bar__cache-flag">CACHED</span>}
         {formatUtc(now)}
+        <Link className="hq-link" to="/hq">
+          HQ VIEW →
+        </Link>
       </div>
     </header>
   )
