@@ -70,7 +70,8 @@
 }
 
 .link-toggle,
-.flush-btn {
+.flush-btn,
+.report-btn {
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
@@ -92,7 +93,8 @@
 }
 
 .link-toggle:disabled,
-.flush-btn:disabled {
+.flush-btn:disabled,
+.report-btn:disabled {
   opacity: 0.5;
   cursor: default;
 }

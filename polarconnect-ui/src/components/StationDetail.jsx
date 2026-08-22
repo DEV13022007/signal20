@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { repo } from '../api/offlineRepo'
+import { downloadReport } from '../api/client'
 import { PRIORITIES, PRIORITY_ORDER } from '../constants/priority'
 import { CrewPanel } from './CrewPanel'
 import { EquipmentPanel } from './EquipmentPanel'
@@ -26,6 +27,7 @@ export function StationDetail({ station, items, crew, equipment, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [note, setNote] = useState(null)
+  const [reportNote, setReportNote] = useState(null)
 
   if (!station) {
     return (
@@ -52,6 +54,18 @@ export function StationDetail({ station, items, crew, equipment, onChanged }) {
     try {
       await repo.flushStation(station.id)
       await onChanged()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function generateReport() {
+    setBusy(true)
+    setReportNote(null)
+    try {
+      await downloadReport(station.id)
+    } catch (err) {
+      setReportNote(`Could not generate report: ${err.message}`)
     } finally {
       setBusy(false)
     }
@@ -111,8 +125,12 @@ export function StationDetail({ station, items, crew, equipment, onChanged }) {
           <button className="flush-btn" onClick={flush} disabled={busy}>
             Flush sync queue
           </button>
+          <button className="report-btn" onClick={generateReport} disabled={busy}>
+            Generate report
+          </button>
         </div>
       </div>
+      {reportNote && <div className="add-item-form__note">{reportNote}</div>}
 
       <div className="station-detail__section-title eyebrow">Inventory · {sorted.length} items</div>
 

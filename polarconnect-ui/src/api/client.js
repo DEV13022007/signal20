@@ -16,6 +16,25 @@ export async function request(path, options = {}) {
   return res.status === 204 ? null : res.json()
 }
 
+export async function downloadReport(stationId) {
+  const res = await fetch(`${BASE_URL}/stations/${stationId}/report`)
+  if (!res.ok) {
+    throw new Error(`Report generation failed: ${res.status}`)
+  }
+  const blob = await res.blob()
+  const disposition = res.headers.get('Content-Disposition') ?? ''
+  const filename = disposition.match(/filename="?([^"]+)"?/)?.[1] ?? `station-${stationId}-report.pdf`
+
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 export const api = {
   getStations: () => request('/stations'),
   setSatelliteLink: (id, active) =>
