@@ -1,6 +1,9 @@
 package com.example.sih26060.service;
 
+import com.example.sih26060.entity.AlertCategory;
+import com.example.sih26060.entity.AlertSeverity;
 import com.example.sih26060.entity.Equipment;
+import com.example.sih26060.entity.EquipmentStatus;
 import com.example.sih26060.entity.Priority;
 import com.example.sih26060.entity.Station;
 import com.example.sih26060.entity.SyncOperation;
@@ -28,6 +31,7 @@ public class EquipmentService {
     private final EquipmentRepository equipmentRepository;
     private final StationRepository stationRepository;
     private final SyncQueueService syncQueueService;
+    private final AlertService alertService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -38,6 +42,7 @@ public class EquipmentService {
         equipment.setStation(station);
         Equipment saved = equipmentRepository.save(equipment);
         enqueueSync(saved, SyncOperation.CREATE);
+        raiseStatusAlertIfTroubled(saved);
         return saved;
     }
 
@@ -45,6 +50,8 @@ public class EquipmentService {
     public Equipment update(Long id, Equipment updates) {
         Equipment existing = equipmentRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Equipment not found: " + id));
+        EquipmentStatus previousStatus = existing.getStatus();
+
         existing.setName(updates.getName());
         existing.setType(updates.getType());
         existing.setStatus(updates.getStatus());
@@ -52,7 +59,23 @@ public class EquipmentService {
         existing.setNextServiceDue(updates.getNextServiceDue());
         Equipment saved = equipmentRepository.save(existing);
         enqueueSync(saved, SyncOperation.UPDATE);
+
+        if (saved.getStatus() != previousStatus) {
+            raiseStatusAlertIfTroubled(saved);
+        }
         return saved;
+    }
+
+    private void raiseStatusAlertIfTroubled(Equipment equipment) {
+        if (equipment.getStatus() == EquipmentStatus.FAILED) {
+            alertService.raise(AlertSeverity.CRITICAL, AlertCategory.EQUIPMENT_FAILED, equipment.getStation(),
+                    "Equipment", equipment.getId(),
+                    "%s at %s has FAILED".formatted(equipment.getName(), equipment.getStation().getName()));
+        } else if (equipment.getStatus() == EquipmentStatus.DEGRADED) {
+            alertService.raise(AlertSeverity.WARNING, AlertCategory.EQUIPMENT_DEGRADED, equipment.getStation(),
+                    "Equipment", equipment.getId(),
+                    "%s at %s is DEGRADED".formatted(equipment.getName(), equipment.getStation().getName()));
+        }
     }
 
     @Transactional

@@ -34,6 +34,8 @@ export const api = {
     request(stationId ? `/equipment?stationId=${stationId}` : '/equipment'),
   updateEquipment: (id, equipment) => request(`/equipment/${id}`, { method: 'PUT', body: JSON.stringify(equipment) }),
 
+  getAlerts: () => request('/alerts'),
+
   getSyncStatus: () => request('/sync/status'),
   getStationSyncStatus: (stationId) => request(`/sync/status/${stationId}`),
   getSyncRecords: (status) => request(status ? `/sync/records?status=${status}` : '/sync/records'),

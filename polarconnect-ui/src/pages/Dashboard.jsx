@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useDashboardData } from '../hooks/useDashboardData'
+import { useAlerts } from '../hooks/useAlerts'
 import { StatusBar } from '../components/StatusBar'
 import { StationList } from '../components/StationList'
 import { StationDetail } from '../components/StationDetail'
 import { SyncQueuePanel } from '../components/SyncQueuePanel'
+import { AlertsPanel } from '../components/AlertsPanel'
 import './Dashboard.css'
 
 export function Dashboard() {
@@ -21,6 +23,7 @@ export function Dashboard() {
     toggleSimulatedOffline,
     refresh,
   } = useDashboardData()
+  const { alerts, connected: alertsConnected } = useAlerts()
   const [selectedId, setSelectedId] = useState(null)
 
   const activeId = selectedId ?? stations[0]?.id ?? null
@@ -39,13 +42,9 @@ export function Dashboard() {
   const crewForStation = personnel.filter((person) => person.stationId === activeId)
   const equipmentForStation = equipment.filter((e) => e.stationId === activeId)
 
-  const criticalCount = useMemo(() => {
-    const failedSyncs = syncRecords.filter((r) => r.status === 'FAILED').length
-    const lowStock = inventory.filter((i) => i.minThreshold != null && i.quantity <= i.minThreshold).length
-    const criticalCrew = personnel.filter((p) => p.healthStatus === 'CRITICAL').length
-    const troubledEquipment = equipment.filter((e) => e.status === 'DEGRADED' || e.status === 'FAILED').length
-    return failedSyncs + lowStock + criticalCrew + troubledEquipment
-  }, [syncRecords, inventory, personnel, equipment])
+  // Sourced from the live alert feed (WebSocket + history), not recomputed locally, so
+  // the counter reflects exactly what the alerting module has raised.
+  const criticalCount = alerts.length
 
   const linkedCount = stations.filter((s) => s.satelliteLinkActive).length
 
@@ -92,7 +91,10 @@ export function Dashboard() {
           equipment={equipmentForStation}
           onChanged={refresh}
         />
-        <SyncQueuePanel records={syncRecords} stationsById={stationsById} />
+        <div className="dashboard__right-rail">
+          <SyncQueuePanel records={syncRecords} stationsById={stationsById} />
+          <AlertsPanel alerts={alerts} connected={alertsConnected} />
+        </div>
       </div>
     </div>
   )

@@ -1,5 +1,7 @@
 package com.example.sih26060.service;
 
+import com.example.sih26060.entity.AlertCategory;
+import com.example.sih26060.entity.AlertSeverity;
 import com.example.sih26060.entity.InventoryItem;
 import com.example.sih26060.entity.Station;
 import com.example.sih26060.entity.SyncOperation;
@@ -26,6 +28,7 @@ public class InventoryService {
     private final InventoryItemRepository inventoryItemRepository;
     private final StationRepository stationRepository;
     private final SyncQueueService syncQueueService;
+    private final AlertService alertService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -36,6 +39,9 @@ public class InventoryService {
         item.setStation(station);
         InventoryItem saved = inventoryItemRepository.save(item);
         enqueueSync(saved, SyncOperation.CREATE);
+        if (isBelowThreshold(saved)) {
+            raiseLowStockAlert(saved);
+        }
         return saved;
     }
 
@@ -43,6 +49,8 @@ public class InventoryService {
     public InventoryItem update(Long id, InventoryItem updates) {
         InventoryItem existing = inventoryItemRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Inventory item not found: " + id));
+        boolean wasBelowThreshold = isBelowThreshold(existing);
+
         existing.setName(updates.getName());
         existing.setPriority(updates.getPriority());
         existing.setQuantity(updates.getQuantity());
@@ -51,7 +59,23 @@ public class InventoryService {
         existing.setMinThreshold(updates.getMinThreshold());
         InventoryItem saved = inventoryItemRepository.save(existing);
         enqueueSync(saved, SyncOperation.UPDATE);
+
+        if (!wasBelowThreshold && isBelowThreshold(saved)) {
+            raiseLowStockAlert(saved);
+        }
         return saved;
+    }
+
+    private boolean isBelowThreshold(InventoryItem item) {
+        return item.getMinThreshold() != null && item.getQuantity() != null
+                && item.getQuantity() <= item.getMinThreshold();
+    }
+
+    private void raiseLowStockAlert(InventoryItem item) {
+        alertService.raise(AlertSeverity.WARNING, AlertCategory.LOW_STOCK, item.getStation(),
+                "InventoryItem", item.getId(),
+                "%s at %s dropped to %d (threshold %d)".formatted(
+                        item.getName(), item.getStation().getName(), item.getQuantity(), item.getMinThreshold()));
     }
 
     @Transactional

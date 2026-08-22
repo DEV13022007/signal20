@@ -1,5 +1,8 @@
 package com.example.sih26060.service;
 
+import com.example.sih26060.entity.AlertCategory;
+import com.example.sih26060.entity.AlertSeverity;
+import com.example.sih26060.entity.HealthStatus;
 import com.example.sih26060.entity.Personnel;
 import com.example.sih26060.entity.Priority;
 import com.example.sih26060.entity.Station;
@@ -28,6 +31,7 @@ public class PersonnelService {
     private final PersonnelRepository personnelRepository;
     private final StationRepository stationRepository;
     private final SyncQueueService syncQueueService;
+    private final AlertService alertService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -38,6 +42,9 @@ public class PersonnelService {
         person.setStation(station);
         Personnel saved = personnelRepository.save(person);
         enqueueSync(saved, SyncOperation.CREATE, Priority.ROUTINE);
+        if (saved.getHealthStatus() == HealthStatus.CRITICAL) {
+            raiseCriticalHealthAlert(saved);
+        }
         return saved;
     }
 
@@ -45,7 +52,8 @@ public class PersonnelService {
     public Personnel update(Long id, Personnel updates) {
         Personnel existing = personnelRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Personnel not found: " + id));
-        boolean healthChanged = existing.getHealthStatus() != updates.getHealthStatus();
+        HealthStatus previousHealth = existing.getHealthStatus();
+        boolean healthChanged = previousHealth != updates.getHealthStatus();
 
         existing.setName(updates.getName());
         existing.setRole(updates.getRole());
@@ -55,7 +63,17 @@ public class PersonnelService {
         Personnel saved = personnelRepository.save(existing);
 
         enqueueSync(saved, SyncOperation.UPDATE, healthChanged ? Priority.MEDICAL : Priority.ROUTINE);
+
+        if (healthChanged && saved.getHealthStatus() == HealthStatus.CRITICAL) {
+            raiseCriticalHealthAlert(saved);
+        }
         return saved;
+    }
+
+    private void raiseCriticalHealthAlert(Personnel person) {
+        alertService.raise(AlertSeverity.CRITICAL, AlertCategory.CREW_CRITICAL, person.getStation(),
+                "Personnel", person.getId(),
+                "%s at %s is now CRITICAL".formatted(person.getName(), person.getStation().getName()));
     }
 
     @Transactional
